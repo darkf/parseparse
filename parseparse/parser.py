@@ -1,5 +1,5 @@
 import metaparser as mp
-
+import re
 
 def mkgrammar(ast):
     symtab = {}
@@ -21,6 +21,8 @@ def expected(g, p):
     if is_(p, mp.Rule): return expected(g, p.syms[0])
     elif is_(p, mp.Lit): return repr(p.v)
     elif is_(p, mp.Nonterminal): return expected(g, g[p.n])
+    elif is_(p, mp.Regex): return "/%s/" % p.r
+    else: raise Exception()
 
 def parse(g, p, s, n):
     if is_(p, mp.Prod):
@@ -49,9 +51,13 @@ def parse(g, p, s, n):
         if r != p.v:
             raise ParseError("Parse error: expected '%s', got '%s'" % (p.v, r))
         return n + len(p.v), r
+    elif is_(p, mp.Regex):
+        m = re.match(p.r, s[n:])
+        if m is None: raise ParseError("Parse error: /%s/ failed to match '%s[...]'" % (p.r, s[n:n+16]))
+        return n + len(m.group(0)), m.group(0)
     elif is_(p, mp.Nonterminal):
         return parse(g, g[p.n], s, n)
-    else: raise ParseError(p)
+    else: raise Exception("Unhandled parse node: " + str(p))
 
 # test
 
@@ -65,7 +71,7 @@ def parse(g, p, s, n):
 
 mp.toks = mp.Tokstream(mp.tokenize("""
 S: '(' S '.' S ')' | atom;
-atom: 'NIL' | 'A' | 'B' | 'C';
+atom: /[A-Z]+/;
 """))
 
 print("Tokens:")
@@ -83,10 +89,10 @@ print("")
 
 def tf(n):
     print("N:", n)
-    return (n[1][0], n[3])
+    return (n[1], n[3])
 
 grammar = mkgrammar(ast)
 grammar["S"].rules[0].tf = tf
 grammar["S"].rules[1].tf = lambda n: n[0]
 for rule in grammar["atom"].rules: rule.tf = lambda n: n[0]
-print("PARSE:", parse(grammar, grammar["S"], "(A.(B.(C.NIL)))", 0))
+print("PARSE:", parse(grammar, grammar["S"], "(A.(B.(ZF.NIL)))", 0))

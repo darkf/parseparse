@@ -4,6 +4,7 @@ scanner = re.Scanner([
     (r"[a-zA-Z_]\w*", lambda _,t: ("IDENT", t)),
     (r":", lambda _,t: ("COLON",)),
     (r"\|", lambda _,t: ("OR",)),
+    (r"/([^/])+/", lambda _,t: ("REGEX", t[1:-1])),
     (r"'([^']*)'", lambda _,t: ("STR", t[1:-1])),
     (r";", lambda _,t: ("SEMI",)),
     (r"\s+", None),
@@ -47,6 +48,7 @@ def node(name, props):
 class Node: pass
 Lit = node('Lit', 'v')
 Nonterminal = node('Nonterminal', 'n')
+Regex = node('Regex', 'r')
 Ident = node('Ident', 'n')
 Rule = node('Rule', 'syms tf')
 Prod = node('Prod', 'nt rules')
@@ -69,6 +71,7 @@ def parse_rule():
 
         if t[0] == "STR": yield Lit(t[1]) #("lit", t[1])
         elif t[0] == "IDENT": yield Nonterminal(t[1]) #("nt", t[1])
+        elif t[0] == "REGEX": yield Regex(t[1])
         else: raise Exception(t)
 
     toks.consume() # consume SEMI
