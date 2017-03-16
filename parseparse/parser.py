@@ -15,6 +15,13 @@ def is_(x,y): return isinstance(x,y)
 
 class ParseError(Exception): pass
 
+def expected(g, p):
+    # Given a grammar node, return an English description of what should be expected
+    if is_(p, mp.Prod): return " or ".join([expected(g, rule) for rule in p.rules])
+    if is_(p, mp.Rule): return expected(g, p.syms[0])
+    elif is_(p, mp.Lit): return repr(p.v)
+    elif is_(p, mp.Nonterminal): return expected(g, g[p.n])
+
 def parse(g, p, s, n):
     if is_(p, mp.Prod):
         err = Exception("Parse error")
@@ -34,7 +41,7 @@ def parse(g, p, s, n):
                 print("Rule", rule, "succeeded")
                 if rule.tf: nodes = rule.tf(nodes)
                 return offset, nodes
-        raise err
+        raise ParseError("Expected %s" % expected(g, p)) # raise err
     elif is_(p, mp.Lit):
         if len(s) - n < len(p.v):
             raise ParseError("Parse error")
