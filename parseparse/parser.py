@@ -18,11 +18,9 @@ Ident = node('Ident', 'n')
 Rule = node('Rule', 'syms tf')
 Prod = node('Prod', 'nt rules')
 
+# Grammar -> dict of prod name: prod
 def mkgrammar(ast):
-    symtab = {}
-    for prod in ast:
-        symtab[prod.nt] = prod
-    return symtab
+    return {prod.nt: prod for prod in ast}
 
 # Backtracking recursive descent parser
 
