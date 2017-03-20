@@ -70,8 +70,10 @@ def parse(g, p, s, n):
 # """))
 
 mp.toks = mp.Tokstream(mp.tokenize("""
-S: '(' S '.' S ')' | atom;
-atom: /[A-Z]+/;
+S: '(' S '.' S ')' -> { (s[1], s[3]) }
+ | atom -> { s[0] };
+
+atom: /[A-Z]+/ -> { s[0] };
 """))
 
 print("Tokens:")
@@ -92,7 +94,7 @@ def tf(n):
     return (n[1], n[3])
 
 grammar = mkgrammar(ast)
-grammar["S"].rules[0].tf = tf
-grammar["S"].rules[1].tf = lambda n: n[0]
-for rule in grammar["atom"].rules: rule.tf = lambda n: n[0]
+#grammar["S"].rules[0].tf = tf
+#grammar["S"].rules[1].tf = lambda n: n[0]
+#for rule in grammar["atom"].rules: rule.tf = lambda n: n[0]
 print("PARSE:", parse(grammar, grammar["S"], "(A.(B.(ZF.NIL)))", 0))

@@ -3,6 +3,7 @@ import re
 scanner = re.Scanner([
     (r"[a-zA-Z_]\w*", lambda _,t: ("IDENT", t)),
     (r":", lambda _,t: ("COLON",)),
+    (r"-> \{([^}]+)\}", lambda _,t: ("TRANSFORM", t.lstrip("->").strip().lstrip("{").rstrip("}"))),
     (r"\|", lambda _,t: ("OR",)),
     (r"/([^/])+/", lambda _,t: ("REGEX", t[1:-1])),
     (r"'([^']*)'", lambda _,t: ("STR", t[1:-1])),
@@ -62,11 +63,12 @@ def expect(t):
     assert c[0] == t, "expected token %s, got token %s" % (t, c[0])
     return c
 
-def parse_rule():
+def parse_syms():
     while True:
         t = toks.peek()
         if t[0] == "SEMI": break
         elif t[0] == "OR": return
+        elif t[0] == "TRANSFORM": return
         t = toks.consume()
 
         if t[0] == "STR": yield Lit(t[1]) #("lit", t[1])
@@ -76,17 +78,29 @@ def parse_rule():
 
     toks.consume() # consume SEMI
 
+def parse_rule():
+    syms = list(parse_syms())
+    tf = None
+    if toks.nonempty() and toks.peek()[0] == "TRANSFORM":
+        code = toks.consume()[1]
+        tf = lambda s: eval(code, None, {'s':s})
+
+        if toks.nonempty() and toks.peek()[0] == "SEMI":
+            toks.consume()
+
+    return Rule(syms, tf)
+
 def parse_prod():
     rules = []
 
     nt = expect("IDENT")
     expect("COLON")
     
-    rules.append(Rule(list(parse_rule()), None))
+    rules.append(parse_rule())
 
     while toks.nonempty() and toks.peek()[0] == "OR":
         toks.consume()
-        rules.append(Rule(list(parse_rule()), None))
+        rules.append(parse_rule())
 
     return Prod(nt[1], rules)
 
