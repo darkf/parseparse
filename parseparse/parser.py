@@ -28,8 +28,8 @@ def is_(x,y): return isinstance(x,y)
 
 class ParseError(Exception): pass
 
+# Given a grammar node, return an English description of what should be expected
 def expected(g, p):
-    # Given a grammar node, return an English description of what should be expected
     if is_(p, Prod): return " or ".join([expected(g, rule) for rule in p.rules])
     if is_(p, Rule): return expected(g, p.syms[0])
     elif is_(p, Lit): return repr(p.v)
@@ -37,23 +37,25 @@ def expected(g, p):
     elif is_(p, Regex): return "/%s/" % p.r
     else: raise Exception()
 
-def parse(g, p, s, n):
+# Core parser
+# g = grammar, p = production, s = string (constant), n = string offset, v = verbose
+def parse(g, p, s, n, v):
     if is_(p, Prod):
         err = Exception("Parse error")
         for rule in p.rules:
-            # print("Trying rule:", rule)
+            if v: print("Trying rule:", rule)
             offset = n
             nodes = []
             for sym in rule.syms:
                 try:
-                    offset, node = parse(g, sym, s, offset)
+                    offset, node = parse(g, sym, s, offset, v)
                     nodes.append(node)
                 except ParseError as e:
-                    # print("Backtracking on", sym)
+                    if v: print("Backtracking on", sym)
                     err = e # TODO: If we record all of these we can get nicer error messages (expected x | y)
                     break
             else: # success, found a rule with no backtracking
-                # print("Rule", rule, "succeeded")
+                if v: print("Rule", rule, "succeeded")
                 if rule.tf: nodes = rule.tf(nodes)
                 return offset, nodes
         raise ParseError("Expected %s" % expected(g, p)) # raise err
@@ -69,12 +71,12 @@ def parse(g, p, s, n):
         if m is None: raise ParseError("Parse error: /%s/ failed to match '%s[...]'" % (p.r, s[n:n+16]))
         return n + len(m.group(0)), m.group(0)
     elif is_(p, Nonterminal):
-        return parse(g, g[p.n], s, n)
+        return parse(g, g[p.n], s, n, v)
     else: raise Exception("Unhandled parse node: " + str(p))
 
 # Parse entire string, erroring if it's not entirely matched
-def parseall(g, p, s, n):
-    (n, r) = parse(g, p, s, n)
+def parseall(g, p, s, n, v):
+    (n, r) = parse(g, p, s, n, v)
     if n != len(s):
         raise ParseError("Didn't match entire string")
     return r
@@ -142,7 +144,7 @@ bootstrap_grammar = mkgrammar([
 
 # Make a grammar from a grammar definition string
 def grammar(grammar_def):
-    g = parseall(bootstrap_grammar, bootstrap_grammar["S"], grammar_def, 0)
+    g = parseall(bootstrap_grammar, bootstrap_grammar["S"], grammar_def, 0, False)
     return mkgrammar(g)
 
 # build a grammar
@@ -153,4 +155,4 @@ atom: /[A-Z]+/ -> { s[0] };
 
 # test parse
 input_str = "(A.(B.(C.NIL)))"
-print("PARSE:", parseall(gram, gram["S"], input_str, 0))
+print("PARSE:", parseall(gram, gram["S"], input_str, 0, True))
