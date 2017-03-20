@@ -104,7 +104,12 @@ def parse_prod():
 
     return Prod(nt[1], rules)
 
-def parse():
+def _parse():
     while toks.peek():
         yield parse_prod()
 
+def parse(s, locals=None):
+    global toks, tflocals
+    tflocals = locals
+    toks = Tokstream(tokenize(s))
+    return list(_parse())

@@ -59,21 +59,43 @@ def parse(g, p, s, n):
         return parse(g, g[p.n], s, n)
     else: raise Exception("Unhandled parse node: " + str(p))
 
+def parseall(g, p, s, n):
+    (n, r) = parse(g, p, s, n)
+    if n != len(s):
+        raise ParseError("Didn't match entire string")
+    return r
+
 # test
 
-mp.toks = mp.Tokstream(mp.tokenize("""
-S: '(' S '.' S ')' -> { (s[1], s[3]) }
- | atom -> { s[0] };
+def parse_tf(tf_str):
+    return tf_str.lstrip("->").strip().lstrip("{").rstrip("}")
 
-atom: /[A-Z]+/ -> { s[0] };
-"""))
+ast = mp.parse("""
+S: prods;
+
+prods: prod ws prods -> { [s[0]] + s[2] }
+     | prod -> { [s[0]] };
+prod: ident ':' ws rules ws ';' ws -> { Prod(s[0], s[3]) };
+rules: rule ws '|' ws rules -> { [s[0]] + s[4] }
+     | rule -> { [s[0]] };
+
+rule: syms ws '-> {' /[^}]+/ '}' -> { Rule(s[0], s[3].lstrip("->").strip().lstrip("{").rstrip(chr(125))) };
+    | syms -> { Rule(s[0], None) };
+
+syms: sym ws syms -> { [s[0]] + s[2] }
+    | sym -> { [s[0]] }
+sym: ident -> { Nonterminal(s[0]) }
+    | /\\u002f[^\\u002f]+\\u002f/ -> { Regex(s[0][1:-1]) }
+    | /'[^']+'/ -> { Lit(s[0][1:-1]) };
+
+ident: /[a-zA-Z_]+/ -> { s[0] };
+ws: /\s*/ -> { None };
+""")
 
 print("Tokens:")
 for tok in mp.toks.toks:
     print(tok)
 
-
-ast = list(mp.parse())
 for node in ast:
     print(" ", node)
 
@@ -82,4 +104,9 @@ print("==============")
 print("")
 
 grammar = mkgrammar(ast)
-print("PARSE:", parse(grammar, grammar["S"], "(A.(B.(ZF.NIL)))", 0))
+input_str = r"""S: '(' S '.' S ')' -> { (s[1], s[3]) }
+ | atom -> { s[0] };
+
+atom: /[A-Z]+/ -> { s[0] };
+"""
+print("PARSE:", parseall(grammar, grammar["S"], input_str, 0))
