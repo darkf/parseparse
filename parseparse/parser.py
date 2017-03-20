@@ -20,13 +20,11 @@ Prod = node('Prod', 'nt rules')
 
 def mkgrammar(ast):
     symtab = {}
-
     for prod in ast:
         symtab[prod.nt] = prod
-
     return symtab
 
-# backtracking recursive descent parser
+# Backtracking recursive descent parser
 
 def is_(x,y): return isinstance(x,y)
 
@@ -76,22 +74,21 @@ def parse(g, p, s, n):
         return parse(g, g[p.n], s, n)
     else: raise Exception("Unhandled parse node: " + str(p))
 
+# Parse entire string, erroring if it's not entirely matched
 def parseall(g, p, s, n):
     (n, r) = parse(g, p, s, n)
     if n != len(s):
         raise ParseError("Didn't match entire string")
     return r
 
-# metagrammar
+### Metagrammar
 
-def parse_tf(tf_str):
-    return tf_str.lstrip("->").strip().lstrip("{").rstrip("}")
-
-nt = Nonterminal
-
+# Parse a transformation string
 def parse_tf(tf):
     code = tf.lstrip("->").strip().lstrip("{").rstrip('}')
     return lambda s: eval(code, None, {'s':s})
+
+nt = Nonterminal
 
 bootstrap_grammar = mkgrammar([
     # S: prods -> { s[0] };
@@ -145,29 +142,7 @@ bootstrap_grammar = mkgrammar([
     Prod("ws", [ Rule([ Regex(r"\s*") ], lambda s: None) ])
 ])
 
-# meta grammar
-"""
-S: prods;
-
-prods: prod ws prods -> { [s[0]] + s[2] }
-     | prod -> { [s[0]] };
-prod: ident ':' ws rules ws ';' ws -> { Prod(s[0], s[3]) };
-rules: rule ws '|' ws rules -> { [s[0]] + s[4] }
-     | rule -> { [s[0]] };
-
-rule: syms ws '-> {' /[^}]+/ '}' -> { Rule(s[0], s[3].lstrip("->").strip().lstrip("{").rstrip(chr(125))) };
-    | syms -> { Rule(s[0], None) };
-
-syms: sym ws syms -> { [s[0]] + s[2] }
-    | sym -> { [s[0]] }
-sym: ident -> { Nonterminal(s[0]) }
-    | /\\u002f[^\\u002f]+\\u002f/ -> { Regex(s[0][1:-1]) }
-    | /'[^']+'/ -> { Lit(s[0][1:-1]) };
-
-ident: /[a-zA-Z_]+/ -> { s[0] };
-ws: /\s*/ -> { None };
-"""
-
+# Make a grammar from a grammar definition string
 def grammar(grammar_def):
     g = parseall(bootstrap_grammar, bootstrap_grammar["S"], grammar_def, 0)
     return mkgrammar(g)
@@ -178,5 +153,6 @@ gram = grammar("""S: '(' S '.' S ')' -> { (s[1], s[3]) }
 atom: /[A-Z]+/ -> { s[0] };
 """)
 
+# test parse
 input_str = "(A.(B.(C.NIL)))"
 print("PARSE:", parseall(gram, gram["S"], input_str, 0))
