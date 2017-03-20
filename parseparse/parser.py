@@ -84,9 +84,8 @@ def parseall(g, p, s, n, v):
 ### Metagrammar
 
 # Parse a transformation string
-def parse_tf(tf):
-    code = tf.lstrip("->").strip().lstrip("{").rstrip('}')
-    return lambda s: eval(code, None, {'s':s})
+def parse_tf(code):
+    return lambda s: eval(code, None, {'s': s})
 
 nt = Nonterminal
 
