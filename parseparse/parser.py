@@ -28,7 +28,7 @@ def parse(g, p, s, n):
     if is_(p, mp.Prod):
         err = Exception("Parse error")
         for rule in p.rules:
-            print("Trying rule:", rule)
+            # print("Trying rule:", rule)
             offset = n
             nodes = []
             for sym in rule.syms:
@@ -36,11 +36,11 @@ def parse(g, p, s, n):
                     offset, node = parse(g, sym, s, offset)
                     nodes.append(node)
                 except ParseError as e:
-                    print("Backtracking on", sym)
+                    # print("Backtracking on", sym)
                     err = e # TODO: If we record all of these we can get nicer error messages (expected x | y)
                     break
             else: # success, found a rule with no backtracking
-                print("Rule", rule, "succeeded")
+                # print("Rule", rule, "succeeded")
                 if rule.tf: nodes = rule.tf(nodes)
                 return offset, nodes
         raise ParseError("Expected %s" % expected(g, p)) # raise err
@@ -70,7 +70,70 @@ def parseall(g, p, s, n):
 def parse_tf(tf_str):
     return tf_str.lstrip("->").strip().lstrip("{").rstrip("}")
 
-ast = mp.parse("""
+nt = mp.Nonterminal
+prod = mp.Prod
+rule = mp.Rule
+lit = mp.Lit
+regex = mp.Regex
+
+def parse_tf(tf):
+    code = tf.lstrip("->").strip().lstrip("{").rstrip('}')
+    return lambda s: eval(code, None, {'s':s})
+
+bootstrap_grammar = mkgrammar([
+    # S: prods -> { s[0] };
+    prod("S", [ rule([ nt("prods") ], lambda s: s[0]) ]),
+
+    # prods: prod ws prods -> { [s[0]] + s[2] }
+    #      | prod -> { [s[0]] };
+    prod("prods", [
+        rule([ nt("prod"), nt("ws"), nt("prods") ], lambda s: [s[0]] + s[2]),
+        rule([ nt("prod") ], lambda s: [s[0]])
+    ]),
+
+    # prod: ident ':' ws rules ws ';' ws -> { Prod(s[0], s[3]) };
+    prod("prod", [
+        rule([ nt("ident"), lit(":"), nt("ws"), nt("rules"), nt("ws"), lit(";"), nt("ws") ], lambda s: prod(s[0], s[3]))
+    ]),
+
+    # rules: rule ws '|' ws rules -> { [s[0]] + s[4] }
+    #      | rule -> { [s[0]] };
+    prod("rules", [
+        rule([ nt("rule"), nt("ws"), lit("|"), nt("ws"), nt("rules") ], lambda s: [s[0]] + s[4]),
+        rule([ nt("rule") ], lambda s: [s[0]])
+    ]),
+
+    # rule: syms ws '-> {' /[^}]+/ '}' -> { Rule(s[0], s[3].lstrip("->").strip().lstrip("{").rstrip(chr(125))) };
+    #     | syms -> { Rule(s[0], None) };
+    prod("rule", [
+        rule([ nt("syms"), nt("ws"), lit("-> {"), regex(r"[^}]+"), lit("}") ], lambda s: rule(s[0], parse_tf(s[3]))),
+        rule([ nt("syms") ], lambda s: rule(s[0], None))
+    ]),
+
+    # syms: sym ws syms -> { [s[0]] + s[2] }
+    #     | sym -> { [s[0]] }
+    prod("syms", [
+        rule([ nt("sym"), nt("ws"), nt("syms") ], lambda s: [s[0]] + s[2]),
+        rule([ nt("sym") ], lambda s: [s[0]])
+    ]),
+
+    # sym: ident -> { Nonterminal(s[0]) }
+    #     | /\\u002f[^\\u002f]+\\u002f/ -> { Regex(s[0][1:-1]) }
+    #     | /'[^']+'/ -> { Lit(s[0][1:-1]) };
+    prod("sym", [
+        rule([ nt("ident") ], lambda s: nt(s[0])),
+        rule([ regex(r"\u002f[^\u002f]+\u002f") ], lambda s: regex(s[0][1:-1])),
+        rule([ regex(r"'[^']+'") ], lambda s: lit(s[0][1:-1]))
+    ]),
+
+    # ident: /[a-zA-Z_]+/ -> { s[0] };
+    # ws: /\s*/ -> { None };
+    prod("ident", [ rule([ regex(r"[a-zA-Z_]+") ], lambda s: s[0]) ]),
+    prod("ws", [ rule([ regex(r"\s*") ], lambda s: None) ])
+])
+
+# meta grammar
+"""
 S: prods;
 
 prods: prod ws prods -> { [s[0]] + s[2] }
@@ -90,23 +153,17 @@ sym: ident -> { Nonterminal(s[0]) }
 
 ident: /[a-zA-Z_]+/ -> { s[0] };
 ws: /\s*/ -> { None };
+"""
+
+def grammar(grammar_def):
+    g = parseall(bootstrap_grammar, bootstrap_grammar["S"], grammar_def, 0)
+    return mkgrammar(g)
+
+# build a grammar
+gram = grammar("""S: '(' S '.' S ')' -> { (s[1], s[3]) }
+ | atom -> { s[0] };
+atom: /[A-Z]+/ -> { s[0] };
 """)
 
-print("Tokens:")
-for tok in mp.toks.toks:
-    print(tok)
-
-for node in ast:
-    print(" ", node)
-
-print("")
-print("==============")
-print("")
-
-grammar = mkgrammar(ast)
-input_str = r"""S: '(' S '.' S ')' -> { (s[1], s[3]) }
- | atom -> { s[0] };
-
-atom: /[A-Z]+/ -> { s[0] };
-"""
-print("PARSE:", parseall(grammar, grammar["S"], input_str, 0))
+input_str = "(A.(B.(C.NIL)))"
+print("PARSE:", parseall(gram, gram["S"], input_str, 0))
