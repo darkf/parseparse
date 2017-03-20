@@ -38,8 +38,8 @@ def expected(g, p):
     else: raise Exception()
 
 # Core parser
-# g = grammar, p = production, s = string (constant), n = string offset, v = verbose
-def parse(g, p, s, n, v):
+# g = grammar, p = production / grammar term, s = string (constant), n = string offset, v = verbose
+def parse(g, p, s, n=0, v=False):
     if is_(p, Prod):
         err = Exception("Parse error")
         for rule in p.rules:
@@ -75,7 +75,7 @@ def parse(g, p, s, n, v):
     else: raise Exception("Unhandled parse node: " + str(p))
 
 # Parse entire string, erroring if it's not entirely matched
-def parseall(g, p, s, n, v):
+def parseall(g, p, s, n=0, v=False):
     (n, r) = parse(g, p, s, n, v)
     if n != len(s):
         raise ParseError("Didn't match entire string")
@@ -146,12 +146,13 @@ def grammar(grammar_def):
     g = parseall(bootstrap_grammar, bootstrap_grammar["S"], grammar_def, 0, False)
     return mkgrammar(g)
 
-# build a grammar
-gram = grammar("""S: '(' S '.' S ')' -> { (s[1], s[3]) }
- | atom -> { s[0] };
-atom: /[A-Z]+/ -> { s[0] };
-""")
+if __name__ == "__main__":
+    # Build a grammar for parsing S-expressions
+    gram = grammar("""S: '(' S '.' S ')' -> { (s[1], s[3]) }
+     | atom -> { s[0] };
+    atom: /[A-Z]+/ -> { s[0] };
+    """)
 
-# test parse
-input_str = "(A.(B.(C.NIL)))"
-print("PARSE:", parseall(gram, gram["S"], input_str, 0, True))
+    # Parse a test sting
+    input_str = "(A.(B.(C.NIL)))"
+    print("PARSE:", parseall(gram, gram["S"], input_str))
