@@ -132,7 +132,7 @@ bootstrap_grammar = mkgrammar([
     #     | /'[^']+'/ -> { Lit(s[0][1:-1]) };
     Prod("sym", [
         Rule([ nt("ident") ], lambda s: nt(s[0])),
-        Rule([ Regex(r"\u002f[^\u002f]+\u002f") ], lambda s: Regex(s[0][1:-1])),
+        Rule([ Regex(r"/[^/]+/") ], lambda s: Regex(s[0][1:-1])),
         Rule([ Regex(r"'[^']+'") ], lambda s: Lit(s[0][1:-1]))
     ]),
 
