@@ -39,6 +39,8 @@ def expected(g, p):
 
 # Core parser
 # g = grammar, p = production / grammar term, s = string (constant), n = string offset, v = verbose
+# The result is the pair (n, r) where n is the new string offset after matching, and
+# r is the resulting parse tree (possibly transformed).
 def parse(g, p, s, n=0, v=False):
     if is_(p, Prod):
         err = Exception("Parse error")

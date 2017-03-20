@@ -10,13 +10,13 @@ Parse trees can be transformed with Python expressions on the fly (and is thus s
 
 S-expression parsing:
 
-    # build a grammar
+    # Build a grammar for parsing S-expressions
     gram = grammar("""S: '(' S '.' S ')' -> { (s[1], s[3]) }
      | atom -> { s[0] };
     atom: /[A-Z]+/ -> { s[0] };
     """)
 
-    # test parse
+    # Parse a test sting
     input_str = "(A.(B.(C.NIL)))"
     print("PARSE:", parseall(gram, gram["S"], input_str, 0, True))
 
